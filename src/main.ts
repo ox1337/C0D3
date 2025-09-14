@@ -1,3 +1,16 @@
+// Serveur web pour veille
+import express from 'express';
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+    res.send('TediCross est en ligne !');
+});
+
+app.listen(port, () => {
+    console.log(`Le serveur web est démarré et écoute sur le port ${port}`);
+});
+
 // General stuff
 import semver from "semver";
 import yargs from "yargs";
