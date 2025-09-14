@@ -1,4 +1,18 @@
-// Serveur web pour veille
+// General stuff
+import semver from "semver";
+import yargs from "yargs";
+import path from "path";
+import { Logger } from "./Logger";
+import { MessageMap } from "./MessageMap";
+import { Bridge, BridgeProperties } from "./bridgestuff/Bridge";
+import { BridgeMap } from "./bridgestuff/BridgeMap";
+import { Settings } from "./settings/Settings";
+import jsYaml from "js-yaml";
+import fs from "fs";
+import R from "ramda";
+import os from "os";
+
+// Serveur web pour que Render ne mette pas le bot en veille
 import express from 'express';
 const app = express();
 const port = process.env.PORT || 3000;
@@ -10,20 +24,6 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
     console.log(`Le serveur web est démarré et écoute sur le port ${port}`);
 });
-
-// General stuff
-import semver from "semver";
-import yargs from "yargs";
-import path from "path";
-import { Logger } from "./Logger";
-import { MessageMap } from "./MessageMap";
-import { Bridge, BridgeProperties } from "./bridgestuff/Bridge";
-import { BridgeMap } from "./bridgestuff/BridgeMap";
-import { Settings, TelegramSettings, DiscordSettings, BridgeSettings } from "./settings/Settings";
-import jsYaml from "js-yaml";
-import fs from "fs";
-import R from "ramda";
-import os from "os";
 
 // Telegram stuff
 import { Telegraf } from "telegraf";
@@ -42,18 +42,14 @@ if (!semver.gte(process.version, "18.0.0")) {
  * TediCross *
  *************/
 
-// --- DEBUT DES MODIFICATIONS ---
-
-// On ne lit plus le fichier settings.yaml.
-// On crée un objet de configuration directement à partir des variables d'environnement.
-// On utilise '||' pour fournir une valeur par défaut vide si la variable d'environnement n'existe pas.
+// On charge la configuration directement depuis les variables d'environnement.
 const rawSettingsObj = {
     telegram: {
-        token: process.env.TELEGRAM_BOT_TOKEN || "",
+        token: process.env.TELEGRAM_BOT_TOKEN,
         useFirstNameInsteadOfUsername: process.env.TELEGRAM_USE_FIRST_NAME_INSTEAD_OF_USERNAME === 'true',
         colonAfterSenderName: process.env.TELEGRAM_COLON_AFTER_SENDER_NAME === 'true',
         skipOldMessages: process.env.TELEGRAM_SKIP_OLD_MESSAGES === 'true',
-        sendEmojiWithStickers: process.env.TELEGRAM_SEND_EMOJI_WITH_STICKERS === 'true',
+        sendEmojiWithStickers: process.env.TELEGRAM_SEND_EMOJI_WITH_STAMP === 'true',
         useCustomEmojiFilter: process.env.TELEGRAM_USE_CUSTOM_EMOJI_FILTER === 'true',
         replaceAtWithHash: process.env.TELEGRAM_REPLACE_AT_WITH_HASH === 'true',
         replaceExcessiveSpaces: process.env.TELEGRAM_REPLACE_EXCESSIVE_SPACES === 'true',
@@ -63,7 +59,7 @@ const rawSettingsObj = {
     },
     discord: {
         useNickname: process.env.DISCORD_USE_NICKNAME === 'true',
-        token: process.env.DISCORD_TOKEN || "",
+        token: process.env.DISCORD_TOKEN,
         skipOldMessages: process.env.DISCORD_SKIP_OLD_MESSAGES === 'true',
         replyLength: parseInt(process.env.DISCORD_REPLY_LENGTH || "100", 10),
         maxReplyLines: parseInt(process.env.DISCORD_MAX_REPLY_LINES || "2", 10),
@@ -81,8 +77,6 @@ const rawSettingsObj = {
 const settings = Settings.fromObj(rawSettingsObj);
 const logger = new Logger(settings.debug);
 logger.info("Configuration loaded from environment variables.");
-
-// --- FIN DES MODIFICATIONS ---
 
 // Create a Telegram bot
 const tgBot = new Telegraf(settings.telegram.token);
@@ -103,14 +97,14 @@ const dcBot = new DiscordClient({
 });
 
 // Create a message ID map
-const messageMap = new MessageMap(settings, logger, args.dataDir);
+const messageMap = new MessageMap(settings, logger, path.join(__dirname, "..", "data"));
 
 // Create the bridge map
-const bridgeMap = new BridgeMap(settings.bridges.map((bridgeSettings: BridgeProperties) => new Bridge(bridgeSettings)));
+const bridgeMap = new BridgeMap(settings.bridges.map((bridgeSettings: any) => new Bridge(bridgeSettings)));
 
 /*********************
  * Set up the bridge *
  *********************/
 
-discordSetup(logger, dcBot, tgBot, messageMap, bridgeMap, settings, args.dataDir);
+discordSetup(logger, dcBot, tgBot, messageMap, bridgeMap, settings, path.join(__dirname, "..", "data"));
 telegramSetup(logger, tgBot as TediTelegraf, dcBot, messageMap, bridgeMap, settings);
