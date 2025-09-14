@@ -18,7 +18,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-    res.send('TediCross est en ligne !');
+    res.send('B0TC0D3 est en ligne !');
 });
 
 app.listen(port, () => {
@@ -65,7 +65,7 @@ const rawSettingsObj = {
         maxReplyLines: parseInt(process.env.DISCORD_MAX_REPLY_LINES || "2", 10),
         suppressThisIsPrivateBotMessage: process.env.DISCORD_SUPPRESS_THIS_IS_PRIVATE_BOT_MESSAGE === 'true',
         enableCustomStatus: process.env.DISCORD_ENABLE_CUSTOM_STATUS === 'true',
-        customStatusMessage: process.env.DISCORD_CUSTOM_STATUS_MESSAGE || "TediCross"
+        customStatusMessage: process.env.DISCORD_CUSTOM_STATUS_MESSAGE || "B0TC0D3"
     },
     bridges: JSON.parse(process.env.CHANNELS_TO_BRIDGE || "[]"),
     debug: process.env.DEBUG === 'true',
