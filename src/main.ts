@@ -6,7 +6,7 @@ import { Logger } from "./Logger";
 import { MessageMap } from "./MessageMap";
 import { Bridge, BridgeProperties } from "./bridgestuff/Bridge";
 import { BridgeMap } from "./bridgestuff/BridgeMap";
-import { Settings } from "./settings/Settings";
+import { Settings, TelegramSettings, DiscordSettings, BridgeSettings } from "./settings/Settings";
 import jsYaml from "js-yaml";
 import fs from "fs";
 import R from "ramda";
@@ -21,88 +21,72 @@ import { Client as DiscordClient, GatewayIntentBits, ActivityType } from "discor
 import { setup as discordSetup } from "./discord2telegram/setup";
 
 if (!semver.gte(process.version, "18.0.0")) {
-	console.log(`TediCross requires at least nodejs 18.0. Your version is ${process.version}`);
-	process.exit();
+    console.log(`TediCross requires at least nodejs 18.0. Your version is ${process.version}`);
+    process.exit();
 }
 
 /*************
  * TediCross *
  *************/
 
-// Get command line arguments if any
-const args = yargs
-	.alias("v", "version")
-	.alias("h", "help")
-	.option("config", {
-		alias: "c",
-		default: path.join(__dirname, "..", "settings.yaml"),
-		describe: "Specify path to settings file",
-		type: "string"
-	})
-	.option("data-dir", {
-		alias: "d",
-		default: path.join(__dirname, "..", "data"),
-		describe: "Specify the path to the directory to store data in",
-		type: "string"
-	}).argv as { config: string; dataDir: string };
+// --- DEBUT DES MODIFICATIONS ---
 
-// Get the settings
-const settingsPath = args.config;
-const rawSettingsObj = jsYaml.load(fs.readFileSync(settingsPath, "utf-8"));
+// On ne lit plus le fichier settings.yaml.
+// On crée un objet de configuration directement à partir des variables d'environnement.
+// On utilise '||' pour fournir une valeur par défaut vide si la variable d'environnement n'existe pas.
+const rawSettingsObj = {
+    telegram: {
+        token: process.env.TELEGRAM_BOT_TOKEN || "",
+        useFirstNameInsteadOfUsername: process.env.TELEGRAM_USE_FIRST_NAME_INSTEAD_OF_USERNAME === 'true',
+        colonAfterSenderName: process.env.TELEGRAM_COLON_AFTER_SENDER_NAME === 'true',
+        skipOldMessages: process.env.TELEGRAM_SKIP_OLD_MESSAGES === 'true',
+        sendEmojiWithStickers: process.env.TELEGRAM_SEND_EMOJI_WITH_STICKERS === 'true',
+        useCustomEmojiFilter: process.env.TELEGRAM_USE_CUSTOM_EMOJI_FILTER === 'true',
+        replaceAtWithHash: process.env.TELEGRAM_REPLACE_AT_WITH_HASH === 'true',
+        replaceExcessiveSpaces: process.env.TELEGRAM_REPLACE_EXCESSIVE_SPACES === 'true',
+        removeNewlineSpaces: process.env.TELEGRAM_REMOVE_NEWLINE_SPACES === 'true',
+        suppressFileTooBigMessages: process.env.TELEGRAM_SUPPRESS_FILE_TOO_BIG_MESSAGES === 'true',
+        suppressThisIsPrivateBotMessage: process.env.TELEGRAM_SUPPRESS_THIS_IS_PRIVATE_BOT_MESSAGE === 'true'
+    },
+    discord: {
+        useNickname: process.env.DISCORD_USE_NICKNAME === 'true',
+        token: process.env.DISCORD_TOKEN || "",
+        skipOldMessages: process.env.DISCORD_SKIP_OLD_MESSAGES === 'true',
+        replyLength: parseInt(process.env.DISCORD_REPLY_LENGTH || "100", 10),
+        maxReplyLines: parseInt(process.env.DISCORD_MAX_REPLY_LINES || "2", 10),
+        suppressThisIsPrivateBotMessage: process.env.DISCORD_SUPPRESS_THIS_IS_PRIVATE_BOT_MESSAGE === 'true',
+        enableCustomStatus: process.env.DISCORD_ENABLE_CUSTOM_STATUS === 'true',
+        customStatusMessage: process.env.DISCORD_CUSTOM_STATUS_MESSAGE || "TediCross"
+    },
+    bridges: JSON.parse(process.env.CHANNELS_TO_BRIDGE || "[]"),
+    debug: process.env.DEBUG === 'true',
+    messageTimeoutAmount: parseInt(process.env.MESSAGE_TIMEOUT_AMOUNT || "24", 10),
+    messageTimeoutUnit: process.env.MESSAGE_TIMEOUT_UNIT || "hours",
+    persistentMessageMap: process.env.PERSISTENT_MESSAGE_MAP === 'true'
+};
+
 const settings = Settings.fromObj(rawSettingsObj);
-
-// Initialize logger
 const logger = new Logger(settings.debug);
+logger.info("Configuration loaded from environment variables.");
 
-// Write the settings back to the settings file if they have been modified
-const newRawSettingsObj = settings.toObj();
-if (R.not(R.equals(rawSettingsObj, newRawSettingsObj))) {
-	// Turn it into notepad friendly YAML
-	//TODO: Replaced safeDump with dump. It needs to be verified
-	const yaml = jsYaml.dump(newRawSettingsObj).replace(/\n/g, "\r\n");
-
-	try {
-		fs.writeFileSync(settingsPath, yaml);
-	} catch (err: any) {
-		if (err.code === "EACCES") {
-			// The settings file is not writable. Give a warning
-			logger.warn(
-				"Changes to TediCross' settings have been introduced. Your settings file it not writable, so it could not be automatically updated. TediCross will still work, with the modified settings, but you will see this warning until you update your settings file"
-			);
-
-			// Write the settings to temp instead
-			const tmpPath = path.join(os.tmpdir(), "tedicross-settings.yaml");
-			try {
-				fs.writeFileSync(tmpPath, yaml);
-				logger.info(
-					`The new settings file has instead been written to '${tmpPath}'. Copy it to its proper location to get rid of the warning`
-				);
-			} catch (err) {
-				logger.warn(
-					`An attempt was made to put the modified settings file at '${tmpPath}', but it could not be done. See the following error message`
-				);
-				logger.warn(err);
-			}
-		}
-	}
-}
+// --- FIN DES MODIFICATIONS ---
 
 // Create a Telegram bot
 const tgBot = new Telegraf(settings.telegram.token);
 
 // Create a Discord bot
 const dcBot = new DiscordClient({
-	intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
-	presence: settings.discord.enableCustomStatus
-		? {
-				activities: [
-					{
-						name: settings.discord.customStatusMessage,
-						type: ActivityType.Custom
-					}
-				]
-		  }
-		: {}
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+    presence: settings.discord.enableCustomStatus
+        ? {
+                activities: [
+                    {
+                        name: settings.discord.customStatusMessage,
+                        type: ActivityType.Custom
+                    }
+                ]
+          }
+        : {}
 });
 
 // Create a message ID map
