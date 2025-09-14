@@ -1,16 +1,12 @@
 // General stuff
 import semver from "semver";
-import yargs from "yargs";
 import path from "path";
 import { Logger } from "./Logger";
 import { MessageMap } from "./MessageMap";
 import { Bridge, BridgeProperties } from "./bridgestuff/Bridge";
 import { BridgeMap } from "./bridgestuff/BridgeMap";
 import { Settings } from "./settings/Settings";
-import jsYaml from "js-yaml";
-import fs from "fs";
 import R from "ramda";
-import os from "os";
 
 // Serveur web pour que Render ne mette pas le bot en veille
 import express from 'express';
@@ -18,7 +14,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-    res.send('B0TC0D3 est en ligne !');
+    res.send('TediCross est en ligne !');
 });
 
 app.listen(port, () => {
@@ -34,8 +30,8 @@ import { Client as DiscordClient, GatewayIntentBits, ActivityType } from "discor
 import { setup as discordSetup } from "./discord2telegram/setup";
 
 if (!semver.gte(process.version, "18.0.0")) {
-    console.log(`TediCross requires at least nodejs 18.0. Your version is ${process.version}`);
-    process.exit();
+	console.log(`TediCross requires at least nodejs 18.0. Your version is ${process.version}`);
+	process.exit();
 }
 
 /*************
@@ -46,6 +42,8 @@ if (!semver.gte(process.version, "18.0.0")) {
 const rawSettingsObj = {
     telegram: {
         token: process.env.TELEGRAM_BOT_TOKEN,
+        apiId: parseInt(process.env.TELEGRAM_API_ID || "0", 10),
+        apiHash: process.env.TELEGRAM_API_HASH,
         useFirstNameInsteadOfUsername: process.env.TELEGRAM_USE_FIRST_NAME_INSTEAD_OF_USERNAME === 'true',
         colonAfterSenderName: process.env.TELEGRAM_COLON_AFTER_SENDER_NAME === 'true',
         skipOldMessages: process.env.TELEGRAM_SKIP_OLD_MESSAGES === 'true',
@@ -65,7 +63,7 @@ const rawSettingsObj = {
         maxReplyLines: parseInt(process.env.DISCORD_MAX_REPLY_LINES || "2", 10),
         suppressThisIsPrivateBotMessage: process.env.DISCORD_SUPPRESS_THIS_IS_PRIVATE_BOT_MESSAGE === 'true',
         enableCustomStatus: process.env.DISCORD_ENABLE_CUSTOM_STATUS === 'true',
-        customStatusMessage: process.env.DISCORD_CUSTOM_STATUS_MESSAGE || "B0TC0D3"
+        customStatusMessage: process.env.DISCORD_CUSTOM_STATUS_MESSAGE || "TediCross"
     },
     bridges: JSON.parse(process.env.CHANNELS_TO_BRIDGE || "[]"),
     debug: process.env.DEBUG === 'true',
